@@ -17,6 +17,9 @@ class ReviewRateableServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../database/migrations/create_reviews_table.php.stub' => $this->app->databasePath()."/migrations/{$timestamp}_create_reviews_table.php",
         ], 'migrations');
+        $this->publishes([
+            __DIR__.'/../database/migrations/create_replies_table.php.stub' => $this->app->databasePath()."/migrations/{$timestamp}_create_replies_table.php",
+        ], 'migrations');
     }
 
     /**

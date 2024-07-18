@@ -44,6 +44,11 @@ class Reply extends Model
         return $this->morphTo();
     }
 
+    public function rating()
+    {
+        return $this->belongsTo(Rating::class);
+    }
+
     /**
      * @param Model $reviewrateable
      * @param $data

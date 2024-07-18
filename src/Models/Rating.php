@@ -2,10 +2,11 @@
 
 namespace Mykholy\ReviewRateable\Models;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Illuminate\Database\Eloquent\Model;
+use Mykholy\ReviewRateable\Models\Reply;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Rating extends Model
 {
@@ -56,6 +57,18 @@ class Rating extends Model
     public function replies()
     {
         return $this->morphMany(Reply::class, 'reviewrateable');
+    }
+
+    /**
+     * @param array $data
+     * @param Model $author
+     * @param Model|null $parent
+     *
+     * 
+     */
+    public function reply(array $data, Model $author, Model $parent = null)
+    {
+        return Reply::createReply($this, $data, $author, $parent);
     }
 
     /**
@@ -195,10 +208,10 @@ class Rating extends Model
         $this->type = $type;
 
         $ratings = $this->whereHasMorph('reviewrateable', '*', function (Builder $query) {
-                return $query->groupBy('reviewrateable_id')
-                ->havingRaw('AVG('.$this->type.')  >= '.$this->rating);
-                    })->where('approved', $approved)
-                ->orderBy($type, $sort)->get();
+            return $query->groupBy('reviewrateable_id')
+                ->havingRaw('AVG(' . $this->type . ')  >= ' . $this->rating);
+        })->where('approved', $approved)
+            ->orderBy($type, $sort)->get();
 
         // ddd($ratings);
         return $ratings;
@@ -222,14 +235,14 @@ class Rating extends Model
     public function getUserRatings($id, $author, $sort = 'desc')
     {
         $rating = $this->where('reviewrateable_id', $id)
-                ->where('author_id', $author)
-                ->orderBy('id', $sort)
-                ->firstOrFail();
+            ->where('author_id', $author)
+            ->orderBy('id', $sort)
+            ->firstOrFail();
 
         return $rating;
     }
 
-     /**
+    /**
      * Get the options for logging.
      *
      * @return \Spatie\Activitylog\LogOptions
