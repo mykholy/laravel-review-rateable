@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
-class Rating extends Model
+class Reply extends Model
 {
     use LogsActivity;
 
@@ -15,22 +15,13 @@ class Rating extends Model
     /**
      * @var string
      */
-    protected $table = 'reviews';
+    protected $table = 'replies';
 
-    /**
-     * @var string
-     */
-    protected $rating;
-
-    /**
-     * @var string
-     */
-    protected $type;
 
     /**
      * @var array
      */
-    protected $guarded = ['id', 'created_at', 'updated_at'];
+    protected $guarded = ['id'];
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\MorphTo
@@ -48,14 +39,9 @@ class Rating extends Model
         return $this->morphTo('author');
     }
 
-    /**
-     * Define the relationship with replies.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
-     */
-    public function replies()
+    public function parent()
     {
-        return $this->morphMany(Reply::class, 'reviewrateable');
+        return $this->morphTo();
     }
 
     /**
@@ -65,17 +51,25 @@ class Rating extends Model
      *
      * @return static
      */
-    public function createRating(Model $reviewrateable, $data, Model $author)
+    public static function createReply(Model $reviewrateable, array $data, Model $author, Model $parent = null)
     {
-        $rating = new static();
-        $rating->fill(array_merge($data, [
+        $reply = new static();
+        $reply->fill(array_merge($data, [
+            'reviewrateable_id' => $reviewrateable->id,
+            'reviewrateable_type' => $reviewrateable->getMorphClass(),
             'author_id' => $author->id,
             'author_type' => $author->getMorphClass(),
         ]));
 
-        $reviewrateable->ratings()->save($rating);
+        if ($parent) {
+            $reply->parent_id = $parent->id;
+            $reply->parent_type = $parent->getMorphClass();
+        }
 
-        return $rating;
+
+        $reply->save();
+
+        return $reply;
     }
 
     /**
@@ -84,12 +78,12 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function updateRating($id, $data)
+    public function updateReply($id, $data)
     {
-        $rating = static::find($id);
-        $rating->update($data);
+        $reply = static::find($id);
+        $reply->update($data);
 
-        return $rating;
+        return $reply;
     }
 
     /**
@@ -98,14 +92,14 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getAllRatings($id, $sort = 'desc')
+    public function getAllReplies($id, $sort = 'desc')
     {
-        $rating = $this->select('*')
+        $replies = $this->select('*')
             ->where('reviewrateable_id', $id)
             ->orderBy('created_at', $sort)
             ->get();
 
-        return $rating;
+        return $replies;
     }
 
     /**
@@ -114,15 +108,15 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getApprovedRatings($id, $sort = 'desc')
+    public function getApprovedReplies($id, $sort = 'desc')
     {
-        $rating = $this->select('*')
+        $replies = $this->select('*')
             ->where('reviewrateable_id', $id)
             ->where('approved', true)
             ->orderBy('created_at', $sort)
             ->get();
 
-        return $rating;
+        return $replies;
     }
 
     /**
@@ -131,15 +125,15 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getNotApprovedRatings($id, $sort = 'desc')
+    public function getNotApprovedReplies($id, $sort = 'desc')
     {
-        $rating = $this->select('*')
+        $replies = $this->select('*')
             ->where('reviewrateable_id', $id)
             ->where('approved', false)
             ->orderBy('created_at', $sort)
             ->get();
 
-        return $rating;
+        return $replies;
     }
 
     /**
@@ -149,16 +143,16 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getRecentRatings($id, $limit = 5, $sort = 'desc')
+    public function getRecentReplies($id, $limit = 5, $sort = 'desc')
     {
-        $rating = $this->select('*')
+        $replies = $this->select('*')
             ->where('reviewrateable_id', $id)
             ->where('approved', true)
             ->orderBy('created_at', $sort)
             ->limit($limit)
             ->get();
 
-        return $rating;
+        return $replies;
     }
 
     /**
@@ -169,47 +163,26 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getRecentUserRatings($id, $limit = 5, $approved = true, $sort = 'desc')
+    public function getRecentUserReplies($id, $limit = 5, $approved = true, $sort = 'desc')
     {
-        $rating = $this->select('*')
+        $replies = $this->select('*')
             ->where('author_id', $id)
             ->where('approved', $approved)
             ->orderBy('created_at', $sort)
             ->limit($limit)
             ->get();
 
-        return $rating;
+        return $replies;
     }
 
-    /**
-     * @param $rating
-     * @param $type
-     * @param $approved
-     * @param $sort
-     *
-     * @return mixed
-     */
-    public function getCollectionByAverageRating($rating, $type = 'rating', $approved = true, $sort = 'asc')
-    {
-        $this->rating = $rating;
-        $this->type = $type;
-
-        $ratings = $this->whereHasMorph('reviewrateable', '*', function (Builder $query) {
-                return $query->groupBy('reviewrateable_id')
-                ->havingRaw('AVG('.$this->type.')  >= '.$this->rating);
-                    })->where('approved', $approved)
-                ->orderBy($type, $sort)->get();
-
-        // ddd($ratings);
-        return $ratings;
-    }
+   
 
     /**
      * @param $id
      *
      * @return mixed
      */
-    public function deleteRating($id)
+    public function deleteReply($id)
     {
         return static::find($id)->delete();
     }
@@ -219,14 +192,14 @@ class Rating extends Model
      *
      * @return mixed
      */
-    public function getUserRatings($id, $author, $sort = 'desc')
+    public function getUserReplies($id, $author, $sort = 'desc')
     {
-        $rating = $this->where('reviewrateable_id', $id)
+        $reply = $this->where('reviewrateable_id', $id)
                 ->where('author_id', $author)
                 ->orderBy('id', $sort)
                 ->firstOrFail();
 
-        return $rating;
+        return $reply;
     }
 
      /**
