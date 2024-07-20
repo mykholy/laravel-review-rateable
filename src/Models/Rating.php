@@ -38,7 +38,7 @@ class Rating extends Model
      */
     public function reviewrateable()
     {
-        return $this->morphTo(__FUNCTION__, 'reviewable_type', 'reviewable_id');
+        return $this->morphTo(__FUNCTION__, 'reviewrateable_type', 'reviewrateable_id');
     }
 
     /**
